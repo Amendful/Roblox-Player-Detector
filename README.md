@@ -6,6 +6,7 @@
 
 For non-programmers, check the Discord server above for an API scraper to compile your `playerlist.txt` file with a list of players from a certain role in the Roblox group of your choice, as well as the prebuilt for the application.
 
+Additionally, the offsets will have to be updated once in a while, I will try to publish newer ones in the repository when they're out.
 ## Overview
 A C++ tool for monitoring player lists in Roblox games. It connects to the running Roblox process to check for specific users and sends a Windows toast notification when one from your list joins.
 
@@ -28,7 +29,7 @@ The tool connects to Roblox using helper files (`rbx.hpp` and `offsets.hpp`). It
 ### Building From Source:
 1. **Clone the Repo**
    ```sh
-   git clone <your-repo-url>
+   git clone https://github.com/Amendful/Roblox-Player-Detector.git
    cd Roblox-Player-Detector
    ```
 
