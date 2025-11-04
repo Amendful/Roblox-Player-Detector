@@ -114,24 +114,33 @@ int main() {
 
     if (!RBX::Memory::attach()) {
         std::cerr << "Couldn't connect to Roblox.\n";
-        std::this_thread::sleep_for(std::chrono::seconds(3));
+        std::cerr << "Make sure Roblox is running and run this as Administrator!\n";
+        std::cerr << "\nPress Enter to exit...";
+        std::cin.get();
         return 1;
     }
 
-    std::set<std::string> prevPlayers;
+    void* baseAddr = RBX::Memory::getRobloxBaseAddr();
+    if (baseAddr == nullptr) {
+        std::cerr << "Failed to get Roblox base address!\n";
+        std::cerr << "\nPress Enter to exit...";
+        std::cin.get();
+        return 1;
+    }
 
     std::set<std::string> targetPlayers = loadTargetPlayers("playerlist.txt");
-
-    std::cout << "Watching for " << targetPlayers.size() << " moderator(s):\n";
-    for (const auto& player : targetPlayers) {
-        std::cout << "  - " << player << "\n";
+    if (targetPlayers.empty()) {
+        std::cerr << "\nPress Enter to exit...";
+        std::cin.get();
+        return 1;
     }
-    std::cout << "\nCurrently Monitoring\n\n";
 
     std::set<std::string> targetPlayersLower;
     for (const auto& t : targetPlayers) targetPlayersLower.insert(to_lower(t));
 
+    std::set<std::string> prevPlayers;
     bool firstRun = true;
+    int failCount = 0;
 
     while (keep_running) {
 #ifdef _WIN32
@@ -141,13 +150,21 @@ int main() {
 #endif
 
         RBX::Instance dataModel{ RBX::getDataModel() };
-        if (dataModel.address == 0) {
+        if (dataModel.address == 0 || dataModel.address == nullptr) {
+            failCount++;
+            if (failCount > 5) {
+                std::cerr << "\nFailed to get DataModel. Your offsets might be outdated!\n";
+                std::cerr << "\nPress Enter to exit...";
+                std::cin.get();
+                return 1;
+            }
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
             continue;
         }
+        failCount = 0;
 
         RBX::Instance players{ dataModel.findFirstChild("Players") };
-        if (players.address == 0) {
+        if (players.address == 0 || players.address == nullptr) {
             std::cout << "Unable to find playerservice\n";
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
             continue;
@@ -186,17 +203,27 @@ int main() {
         }
         else {
             for (const auto& target : targetPlayersLower) {
-                if (currentPlayersLower.count(target) && prevPlayers.find(target) == prevPlayers.end()) {
-                    std::string realName;
-                    for (const auto& p : currentPlayers)
-                        if (to_lower(p) == target) { realName = p; break; }
-                    std::cout << "MODERATOR JOINED: " << realName << "\n";
-                    sendNotification(realName);
+                if (currentPlayersLower.count(target)) {
+                    bool wasInPrevious = false;
+                    for (const auto& prev : prevPlayers) {
+                        if (to_lower(prev) == target) {
+                            wasInPrevious = true;
+                            break;
+                        }
+                    }
+
+                    if (!wasInPrevious) {
+                        std::string realName;
+                        for (const auto& p : currentPlayers)
+                            if (to_lower(p) == target) { realName = p; break; }
+                        std::cout << "MODERATOR JOINED: " << realName << "\n";
+                        sendNotification(realName);
+                    }
                 }
             }
         }
 
-        prevPlayers = std::move(currentPlayers);
+        prevPlayers = currentPlayers;
         std::this_thread::sleep_for(std::chrono::milliseconds(2000));
     }
 
